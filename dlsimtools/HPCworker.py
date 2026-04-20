@@ -140,8 +140,16 @@ class HPCWorker():
         shutil.copy(os.path.join(os.curdir,sname),os.path.join(tardir,sname))
     
     def submit_job (self, runcom, scancel = False):
-        
-        ostr = subprocess.check_output (runcom.split(), stderr = subprocess.STDOUT)
+
+        print("Submitting job with command:\n  {}".format(runcom))
+        try:
+            ostr = subprocess.check_output(runcom.split(), stderr=subprocess.STDOUT, timeout=30)
+        except subprocess.TimeoutExpired:
+            print("ERROR: sbatch timed out after 30s — check HPC connectivity or command")
+            raise
+        except subprocess.CalledProcessError as e:
+            print("ERROR: sbatch failed (exit {}): {}".format(e.returncode, e.output.decode("ascii", errors="replace")))
+            raise
         ostr = ostr.decode("ascii")
         
         if self.sched in ("slurm", "archer2", "isambard3"):
