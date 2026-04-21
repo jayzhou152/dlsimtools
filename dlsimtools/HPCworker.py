@@ -125,14 +125,13 @@ class HPCWorker():
             # grace partition has 144 cores per node
             ntasksstr = "--ntasks={}".format(int(nodes) * 144)
             prtstr = "--partition=grace"
-            qosstr = "--qos=grace_qos"
 
             if premiumcode is not None:
                 runstr += " --account={}".format(premiumcode)
             if mem != 0:
                 ntasksstr += " --mem={}G".format(mem)
             tarstr = sname
-            runcom = runcom.format(runstr, jobstr, nodestr, ntasksstr, timestr, prtstr, qosstr, tarstr)
+            runcom = runcom.format(runstr, jobstr, nodestr, ntasksstr, timestr, prtstr, tarstr)
 
         return runcom
     
