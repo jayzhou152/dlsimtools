@@ -13,19 +13,18 @@ class HPCWorker():
         self.sched = scheduler
         self.write_jobscript (self.sched)
             
-    def write_jobscript (self, sched, mods=[], env="", exe="DLPOLY.X", mpi=1):
-        
+    def write_jobscript (self, sched, mods=[], env="", exe="python3 tmmc_master300.py", mpi=1):
+
         cont =["#!/bin/bash\n"]
         loadcom = "module load {}\n"
 
-        
         if mpi > 1:
             if sched == "isambard3":
                 com = "srun --mpi=cray_shasta -n {} {}\n".format(mpi, exe)
             else:
                 com = "mpirun -np {} {}\n".format(mpi, exe)
         else:
-            com = exe
+            com = exe + "\n"
 
         if sched == "slurm":
             cont.append("module purge\n")
@@ -38,6 +37,8 @@ class HPCWorker():
             cont.append(loadcom.format("cray-python"))
 
         if sched == "isambard3":
+            cont.insert(1, "#SBATCH --output=job_%j.out\n")
+            cont.insert(1, "#SBATCH --error=job_%j.err\n")
             cont.append("module purge\n")
             cont.append(loadcom.format("brics/default"))
             cont.append(loadcom.format("brics/userenv"))
@@ -123,7 +124,7 @@ class HPCWorker():
             timestr = "--time={}:00:00".format(wtime)
             # grace partition has 144 cores per node
             ntasksstr = "--ntasks={}".format(int(nodes) * 144)
-            prtstr = "--partition={}".format(prt if prt != "batch-all" else "grace")
+            prtstr = "--partition=grace"
             qosstr = "--qos=grace_qos"
 
             if Qtype == "premium":

@@ -247,8 +247,11 @@ class Controller():
                 raise ValueError ("Wrong process chosen, available processes \
                     tmmc_only, tmmc_cont, tmmc_pull, tmmc_pcont, tmmc_nmols.")
     
-    def tmmc_looper(self, temps, timec = 96, mem = 0, prt = "standard", qos ="standard", contdir = "mc_nmol", bubbleless=False, Qtype = "premium", pcode = "e05-surfin-par", mode ="balena", process = "bias", bulk_image=False, env="py_env"):
-        
+    def tmmc_looper(self, temps, timec = 96, mem = 0, prt = "standard", qos ="standard", contdir = "mc_nmol", bubbleless=False, Qtype = "premium", pcode = "e05-surfin-par", mode ="balena", process = "bias", bulk_image=False, env=None):
+
+        if env is None:
+            env = "myenv" if mode == "isambard3" else "py_env"
+
         print ("worker {}".format(mode))
         
 
