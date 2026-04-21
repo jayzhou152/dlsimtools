@@ -66,7 +66,7 @@ class HPCWorker():
         
         return sname
     
-    def get_runcom (self, nodes, wtime, sname, mem = 0, Qtype= "free", qos = "standard", prt = "batch-all", premiumcode = "rc-ch1297"):
+    def get_runcom (self, nodes, wtime, sname, mem = 0, Qtype= "free", qos = "standard", prt = "batch-all", premiumcode = None):
         
         
         if self.sched == "slurm":
@@ -104,7 +104,7 @@ class HPCWorker():
             jobstr = "--job-name=tmmc_jz662"
             qosstr = "--qos={}".format(qos)
 
-            if Qtype == "premium":
+            if Qtype == "premium" and premiumcode is not None:
                 timestr += " --account={}".format(premiumcode)
             if mem != 0:
                 timestr += " --mem={}G".format(mem)
@@ -127,7 +127,7 @@ class HPCWorker():
             prtstr = "--partition=grace"
             qosstr = "--qos=grace_qos"
 
-            if Qtype == "premium":
+            if premiumcode is not None:
                 runstr += " --account={}".format(premiumcode)
             if mem != 0:
                 ntasksstr += " --mem={}G".format(mem)
