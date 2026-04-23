@@ -206,7 +206,7 @@ class Controller():
         
         with open("tmmc_master{}.py".format(temp),'w') as fw:
 
-            fw.write("from tmmc_master_control import Controller\n")
+            fw.write("from dlsimtools.tmmc_master_control import Controller\n")
 
             f_str = "pc = Controller(dlm_exec = '{}', dlm_exec_par ='{}', rs_steps = {},tmmc_steps = {}," +\
                 "psteps = {}, rlims = [{},{}], lsmc_mpi = {}, use_sb ='{}', rel_steps = {}, cont_fac = [{},{}], bin_fac = {}, added_sb = {}, rmode = '{}', nodes = {}, nw = {}, gradco = {}," +\
