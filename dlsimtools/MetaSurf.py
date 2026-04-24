@@ -6,7 +6,6 @@ slice relaxation currently has termination checks and dl_field +5 corrections
 , does not rebox.
 
 """
-from sympy import print_ccode
 from .FieldTools import FieldTools
 from .PolyCore import PolyCore
 from .PolyOutput import PolyOutput

@@ -329,7 +329,7 @@ class MonteData():
 
     def check_prod(self, cut_ratio = 0.5, pratio = 0.98):
         
-        from MonteCore import MonteCore
+        from .MonteCore import MonteCore
         mc = MonteCore()
         bgap, abound, wbound = mc.get_bandgap()
 

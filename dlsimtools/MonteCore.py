@@ -13,7 +13,6 @@ import time
 import json
 import csv
 
-from numpy.core.shape_base import _vhstack_dispatcher
 from .InputConverter import InputConverter
 from .GeneralUtil import GeneralUtil
 from .MonteCon import MonteCon
@@ -616,7 +615,7 @@ class MonteCore():
 
     def check_in_window(self, runs, interval=1, threshold = 0.9):
         
-        from MonteData import MonteData
+        from .MonteData import MonteData
         md = MonteData()
         same_length_count = 1
         prev_length = 1
@@ -723,7 +722,7 @@ class MonteCore():
         same_length_count = 1
         prev_length = 1
         time.sleep(sleep)
-        from MonteData import MonteData
+        from .MonteData import MonteData
         md = MonteData()
         ncount = int(10800/interval)
 

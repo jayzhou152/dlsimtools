@@ -1046,7 +1046,7 @@ class Controller():
 
     def multiple_removal_set_up(self, temps, preemble, indices, pull_dis, tmmc_cont = False, **kwargs):
         
-        from MonteCon import MonteCon
+        from .MonteCon import MonteCon
         #checks for preemble inside indices.
         if any(np.in1d(preemble,indices)):
             raise ValueError("Preemble molecules are pre-removed molecules and is therefore not allowed to be removed.")
