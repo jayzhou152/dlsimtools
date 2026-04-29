@@ -18,8 +18,8 @@ import subprocess
 class LSMC():
     
     
-    def __init__ (self):
-        
+    def __init__ (self, dlm_com=None, dlm_com_par=None):
+
         """
         CONSTRUCTOR to create function objects.
 
@@ -29,7 +29,12 @@ class LSMC():
 
         """
 
-        self.mc = MonteCore()
+        mc_kwargs = {}
+        if dlm_com is not None:
+            mc_kwargs["dlm_com"] = dlm_com
+        if dlm_com_par is not None:
+            mc_kwargs["dlm_com_par"] = dlm_com_par
+        self.mc = MonteCore(**mc_kwargs)
         self.ms = MetaSurf()
         self.mcd = MonteData()
 

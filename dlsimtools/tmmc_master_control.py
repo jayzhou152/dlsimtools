@@ -102,8 +102,9 @@ class Controller():
             raise ValueError("check_m and check_fe are mutually exclusive runtime checkers, please only enable one of them.")
 
     def master_surf_tmmc(self,temp):
-        
-        ls = LSMC()
+
+        ls = LSMC(dlm_com=None if self.dlm_exec == "default" else self.dlm_exec,
+                  dlm_com_par=None if self.dlm_exec_par == "default" else self.dlm_exec_par)
         mc = self.mc
         gu = GeneralUtil()
 
@@ -537,8 +538,9 @@ class Controller():
         return -fed_corrected
     
     def produce_se(self, temps):
-        
-        ls = LSMC()
+
+        ls = LSMC(dlm_com=None if self.dlm_exec == "default" else self.dlm_exec,
+                  dlm_com_par=None if self.dlm_exec_par == "default" else self.dlm_exec_par)
 
         #if temps == "auto":
         #    temps = []
@@ -1412,7 +1414,8 @@ class Controller():
         os.chdir("lsmc_temp{}_1".format(str(temp)))
         
         shutil.copy("lsmc_tmmc1/FEDDAT.000_001","FEDDAT.000_001")
-        ls = LSMC()
+        ls = LSMC(dlm_com=None if self.dlm_exec == "default" else self.dlm_exec,
+                  dlm_com_par=None if self.dlm_exec_par == "default" else self.dlm_exec_par)
         mc = self.mc
         gu = GeneralUtil()
 
