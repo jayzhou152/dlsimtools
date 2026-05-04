@@ -18,7 +18,7 @@ import subprocess
 
 class Controller():
     
-    def __init__(self, dlm_exec="default" , dlm_exec_par ="default" , rs_steps = 20000000, tmmc_steps = 2000000000, psteps = 2000000000, rlims = [-4e7,4e7], lsmc_mpi = False, use_sb= "se", rel_steps = 100000, cont_fac = [0.5,2], bin_fac = 1, added_sb = 0, rmode = "normal", nodes=1, nw=16, gradco = [5.089E-5,0.6136], prodmode = "ee", gcexclude = True, slab_molname = "XYZ", thickness_mode="edge", check_m = False, check_fe=True, tol=0.1, get_max_disp = True, upper_softedge = True, lower_softedge = False, rigid = False, volrel = "no_rel", volrel_param = [0,0,0,0,0,0], pull_cont_dis=1, nmol_strict= False,setup_cp = 1E100, setup_steps=10000000, new_control = False):
+    def __init__(self, dlm_exec="default" , dlm_exec_par ="default" , rs_steps = 20000000, tmmc_steps = 2000000000, psteps = 2000000000, rlims = [-4e7,4e7], lsmc_mpi = False, use_sb= "se", rel_steps = 100000, cont_fac = [0.5,2], bin_fac = 1, added_sb = 0, rmode = "normal", nodes=1, nw=16, gradco = [5.089E-5,0.6136], prodmode = "ee", gcexclude = True, slab_molname = "XYZ", thickness_mode="edge", check_m = False, check_fe=True, tol=0.1, get_max_disp = True, upper_softedge = True, lower_softedge = False, rigid = False, volrel = "no_rel", volrel_param = [0,0,0,0,0,0], pull_cont_dis=1, nmol_strict= False,setup_cp = 1E100, setup_steps=10000000, new_control = False, sched="default"):
         """_summary_
 
         Args:
@@ -88,6 +88,8 @@ class Controller():
         self.setup_cp = setup_cp
         self.setup_steps = setup_steps
         self.new_control = new_control
+        self.sched = sched
+        self.nwin_crit = 143 if sched == "isambard3" else 127
         if dlm_exec == "default" and dlm_exec_par == "default":
             self.mc = MonteCore()
         else:
@@ -186,7 +188,7 @@ class Controller():
             SwitchBias.bias_change(0)
         else:
             raise ValueError("sb mode must be 'zero', 'se' or 'optimised'.")
-        tmruns = mc.tmmc (rone, rtwo, bins, self.nw, temp, 1, mode = "loose", cont = True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge)
+        tmruns = mc.tmmc (rone, rtwo, bins, self.nw, temp, 1, mode = "loose", cont = True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge, nwin_crit=self.nwin_crit)
         mc.check_runs_terminate(tmruns, 60 , check_m = self.check_m,check_fe=self.check_fe,tol=self.tol)
         os.chdir("..")
 
@@ -198,7 +200,7 @@ class Controller():
                 rone = float(fh.readline())
                 rtwo = float(fh.readline())
         oprange = [rone,rtwo]
-        tmruns = mc.tmmc(oprange[0],oprange[1],0,self.nw,temp,1,cont=True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge)
+        tmruns = mc.tmmc(oprange[0],oprange[1],0,self.nw,temp,1,cont=True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge, nwin_crit=self.nwin_crit)
         time.sleep(120)
         mc.check_runs_terminate(tmruns,60,check_m=self.check_m,check_fe=self.check_fe)
         os.chdir("..")
@@ -211,10 +213,10 @@ class Controller():
 
             f_str = "pc = Controller(dlm_exec = '{}', dlm_exec_par ='{}', rs_steps = {},tmmc_steps = {}," +\
                 "psteps = {}, rlims = [{},{}], lsmc_mpi = {}, use_sb ='{}', rel_steps = {}, cont_fac = [{},{}], bin_fac = {}, added_sb = {}, rmode = '{}', nodes = {}, nw = {}, gradco = {}," +\
-                "prodmode = '{}', gcexclude = {}, slab_molname = '{}', thickness_mode='{}', check_m = {}, check_fe = {}, tol = {}, get_max_disp = {}, upper_softedge = {}, lower_softedge = {}, rigid = {}, volrel = '{}', volrel_param=[{},{},{},{},{},{}], pull_cont_dis = {}, nmol_strict = {}, setup_cp = {}, setup_steps = {}, new_control = {})\n"
+                "prodmode = '{}', gcexclude = {}, slab_molname = '{}', thickness_mode='{}', check_m = {}, check_fe = {}, tol = {}, get_max_disp = {}, upper_softedge = {}, lower_softedge = {}, rigid = {}, volrel = '{}', volrel_param=[{},{},{},{},{},{}], pull_cont_dis = {}, nmol_strict = {}, setup_cp = {}, setup_steps = {}, new_control = {}, sched = '{}')\n"
             f_str = f_str.format(self.dlm_exec, self.dlm_exec_par, self.rs_steps, self.tmmc_steps, self.psteps, self.rlims[0], self.rlims[1], self.lsmc_mpi, self.use_sb, self.rel_steps, self.cont_fac[0],
             self.cont_fac[1], self.bin_fac, self.added_sb, self.rmode, self.nodes, self.nw, self.gradco,
-            self.prodmode, self.gcexclude, self.slab_molname, self.thickness_mode, self.check_m, self.check_fe, self.tol, self.get_max_disp, self.upper_softedge, self.lower_softedge, self.rigid, self.volrel, self.volrel_param[0],self.volrel_param[1],self.volrel_param[2],self.volrel_param[3],self.volrel_param[4],self.volrel_param[5],self.pull_cont_dis,self.nmol_strict,self.setup_cp,self.setup_steps,self.new_control)
+            self.prodmode, self.gcexclude, self.slab_molname, self.thickness_mode, self.check_m, self.check_fe, self.tol, self.get_max_disp, self.upper_softedge, self.lower_softedge, self.rigid, self.volrel, self.volrel_param[0],self.volrel_param[1],self.volrel_param[2],self.volrel_param[3],self.volrel_param[4],self.volrel_param[5],self.pull_cont_dis,self.nmol_strict,self.setup_cp,self.setup_steps,self.new_control,self.sched)
 
             fw.write (f_str)
 
@@ -248,26 +250,26 @@ class Controller():
                 raise ValueError ("Wrong process chosen, available processes \
                     tmmc_only, tmmc_cont, tmmc_pull, tmmc_pcont, tmmc_nmols.")
     
-    def tmmc_looper(self, temps, timec = 96, mem = 0, prt = "standard", qos ="standard", contdir = "mc_nmol", bubbleless=False, Qtype = "premium", pcode = None, mode ="balena", process = "bias", bulk_image=False, env=None):
+    def tmmc_looper(self, temps, timec = 96, mem = 0, prt = "standard", qos ="standard", contdir = "mc_nmol", bubbleless=False, Qtype = "premium", pcode = None, process = "bias", bulk_image=False, env=None):
 
         if env is None:
-            env = "myenv" if mode == "isambard3" else "py_env"
+            env = "myenv" if self.sched == "isambard3" else "py_env"
 
-        print ("worker {}".format(mode))
-        
+        print ("worker {}".format(self.sched))
+
 
         if bulk_image:
-            #do some checks 
-            if all((process != "tmmc_nmols",process!= "tmmc_cont",process!="tmmc_wipe_cont")): 
+            #do some checks
+            if all((process != "tmmc_nmols",process!= "tmmc_cont",process!="tmmc_wipe_cont")):
                 raise RuntimeError("Process must be nmols, tmmc_cont or tmmc_wipe_cont to invoke bulk_image mode.")
             print ("invoking bulk image mode, creating addtional gcmc sim sets for the bulk solvent image.")
 
             mc = self.mc
 
-        if mode == "balena":
+        if self.sched == "balena":
             hpw = HPCWorker("slurm")
-            
-            for temp in temps:   
+
+            for temp in temps:
                 self.write_tmmc(temp, process=process, contdir=contdir, bubbleless = bubbleless)
                 time.sleep(1)
                 sname = hpw.write_jobscript("slurm", env="work", exe = "python3 tmmc_master{}.py".format(temp))
@@ -275,8 +277,8 @@ class Controller():
                 jobid = hpw.submit_job(runcom)
                 time.sleep(1)
                 print ("Tmmc simulation for temperature {}K is running under job id {}".format(temp,jobid))
-        
-        elif mode == "archer2":
+
+        elif self.sched == "archer2":
             if pcode is None:
                 pcode = "e05-surfin-par"
             hpw = HPCWorker("archer2")
@@ -323,7 +325,7 @@ class Controller():
                     print ("Tmmc bulk image simulation for temperature {}K is running under job id {}".format(temp,jobid))
                     time.sleep(1)
 
-        elif mode == "normal":
+        elif self.sched == "normal":
             if len (temps) > 20:
                 raise ValueError("Too many processes for normal mode to handle at once.")
                 return 0
@@ -413,7 +415,7 @@ class Controller():
                     else:
                         raise ValueError ("Wrong process chosen, choose either bias or production.")
                 
-        elif mode == "isambard3":
+        elif self.sched == "isambard3":
             hpw = HPCWorker("isambard3")
 
             for temp in temps:
@@ -459,7 +461,7 @@ class Controller():
                     time.sleep(1)
 
         else:
-            raise ValueError("Inappropriate looper mode. Use either 'balena', 'archer2', 'isambard3' or 'normal'.")
+            raise ValueError("Inappropriate sched value on Controller. Use either 'balena', 'archer2', 'isambard3' or 'normal'.")
     
     def bulk_image_setup (self,temp):
         mc = self.mc
@@ -821,7 +823,7 @@ class Controller():
         else:
             bin = int((bin/(self.nw + 1))) * (self.nw+1)
 
-        runs = mc.tmmc(drangeone,drangetwo,bin,self.nw,temp,0,ls=False)
+        runs = mc.tmmc(drangeone,drangetwo,bin,self.nw,temp,0,ls=False,nwin_crit=self.nwin_crit)
         mc.check_runs_terminate(runs, 5, check_fe = False, check_m = False)
 
         #mc.check_in_window(runs)
@@ -1309,7 +1311,7 @@ class Controller():
             drangetwo = bg[0] + bin
             mc.edit_windowed_control(drangeone,drangetwo,mode="allrange")
 
-        runs = mc.tmmc(drangeone,drangetwo,bin,self.nw,temp,1,mode="gcmc",ls=False,bubbleless=bubbleless)
+        runs = mc.tmmc(drangeone,drangetwo,bin,self.nw,temp,1,mode="gcmc",ls=False,bubbleless=bubbleless,nwin_crit=self.nwin_crit)
         if not mc.check_in_window(runs):
             print ("Window set up sim failed, terminating run loop...")
             return False
