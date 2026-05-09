@@ -250,6 +250,93 @@ class Controller():
                 raise ValueError ("Wrong process chosen, available processes \
                     tmmc_only, tmmc_cont, tmmc_pull, tmmc_pcont, tmmc_nmols.")
     
+    def run_folder(self, folder, timec=24, nodes=1, mem=0, prt="standard", qos="standard",
+                   Qtype="premium", pcode=None, env=None):
+        """Submit a single HPC job that runs all DL_MONTE simulations in `folder` sequentially.
+
+        Each immediate subdirectory of `folder` that contains a CONTROL file is treated as one
+        simulation. The simulations are executed one after another inside the job using the serial
+        DL_MONTE executable (run_dlm mode='fg').
+
+        Args:
+            folder (str): Path to the parent directory whose subdirectories are simulations.
+            timec (int): Wall-time in hours. Defaults to 24.
+            nodes (int): Number of HPC nodes. Defaults to 1.
+            mem (int): Memory in GB (0 = scheduler default). Defaults to 0.
+            prt (str): Partition name. Defaults to 'standard'.
+            qos (str): QoS string (archer2 only). Defaults to 'standard'.
+            Qtype (str): Queue type ('premium' or 'free'). Defaults to 'premium'.
+            pcode (str): Premium account code. Defaults to None.
+            env (str): Conda/virtual environment name. Defaults to scheduler-appropriate default.
+
+        Returns:
+            str: Submitted job ID.
+        """
+        if self.sched not in ("balena", "archer2", "isambard3"):
+            raise ValueError(
+                "run_folder requires an HPC scheduler. "
+                "Set sched='archer2', 'isambard3', or 'balena' when creating Controller."
+            )
+
+        if env is None:
+            env = "myenv" if self.sched == "isambard3" else "py_env"
+
+        folder = os.path.abspath(folder)
+        sims = natsort.natsorted([
+            d for d in os.listdir(folder)
+            if os.path.isdir(os.path.join(folder, d))
+            and "CONTROL" in os.listdir(os.path.join(folder, d))
+        ])
+
+        if not sims:
+            raise ValueError(
+                "No simulation directories (containing CONTROL) found in '{}'.".format(folder)
+            )
+
+        print("Found {} simulation(s) in '{}': {}".format(len(sims), folder, sims))
+
+        cwdir = os.getcwd()
+        os.chdir(folder)
+
+        runner_name = "folder_runner.py"
+        with open(runner_name, "w") as fw:
+            fw.write("import os\n")
+            fw.write("from dlsimtools.MonteCore import MonteCore\n\n")
+            fw.write("mc = MonteCore(dlm_com='{}', dlm_com_par='{}')\n".format(
+                self.mc.dlm_com, self.mc.dlm_com_par))
+            fw.write("base = os.path.dirname(os.path.abspath(__file__))\n")
+            fw.write("sims = {}\n\n".format(repr(sims)))
+            fw.write("for sim in sims:\n")
+            fw.write("    print('Running: ' + sim, flush=True)\n")
+            fw.write("    os.chdir(os.path.join(base, sim))\n")
+            fw.write("    mc.run_dlm(mode='fg')\n")
+            fw.write("    print('Completed: ' + sim, flush=True)\n\n")
+            fw.write("print('All simulations complete.')\n")
+
+        exe_name = "python" if self.sched == "archer2" else "python3"
+        exe = "{} {}".format(exe_name, runner_name)
+
+        if self.sched == "balena":
+            hpw = HPCWorker("slurm")
+            sname = hpw.write_jobscript("slurm", env=env, exe=exe)
+            runcom = hpw.get_runcom(nodes, timec, sname, prt=prt, mem=mem, qos=qos, Qtype=Qtype)
+        elif self.sched == "archer2":
+            if pcode is None:
+                pcode = "e05-surfin-par"
+            hpw = HPCWorker("archer2")
+            sname = hpw.write_jobscript("archer2", env=env, exe=exe)
+            runcom = hpw.get_runcom(nodes, timec, sname, prt=prt, mem=mem, qos=qos, Qtype=Qtype, premiumcode=pcode)
+        elif self.sched == "isambard3":
+            hpw = HPCWorker("isambard3")
+            sname = hpw.write_jobscript("isambard3", env=env, exe=exe)
+            runcom = hpw.get_runcom(nodes, timec, sname, prt=prt, mem=mem, Qtype=Qtype, premiumcode=pcode)
+
+        jobid = hpw.submit_job(runcom)
+        print("Submitted job {} for folder '{}'.".format(jobid, folder))
+
+        os.chdir(cwdir)
+        return jobid
+
     def tmmc_looper(self, temps, timec = 96, mem = 0, prt = "standard", qos ="standard", contdir = "mc_nmol", bubbleless=False, Qtype = "premium", pcode = None, process = "bias", bulk_image=False, env=None):
 
         if env is None:
