@@ -15,7 +15,7 @@ pip install dlsimtools
 ### Modules
 
 **Simulation control**
-- `tmmc_master_control.Controller` — top-level controller for running full TMMC (Transition Matrix Monte Carlo) pipelines, including range-seeking, bias optimisation, and production runs. Supports local execution and HPC job submission (Slurm/Archer2).
+- `tmmc_master_control.Controller` — top-level controller for running full TMMC (Transition Matrix Monte Carlo) pipelines, including range-seeking, bias optimisation, and production runs. Supports local execution and HPC job submission (Slurm/Archer2/Isambard3) via the `sched` parameter.
 - `MonteCore` — low-level automation of DL_MONTE runs: editing CONTROL/CONFIG files, launching serial/parallel jobs, and monitoring convergence.
 - `LSMC` — range-seeking and optimised bin calculation for TMMC simulations.
 - `PolyCore` — equivalent automation utilities for DL_POLY MD runs.
@@ -40,7 +40,7 @@ pip install dlsimtools
 - `GeneralUtil` — common file editing and unit conversion utilities.
 - `GeneralOptimizer` — general-purpose optimisation routines.
 - `OptimizerScript` — scripting interface for optimisation workflows.
-- `HPCworker` — writes and submits job scripts for Slurm and Archer2.
+- `HPCworker` — writes and submits job scripts for Slurm, Archer2, and Isambard3.
 
 ## Quick start
 
@@ -52,11 +52,12 @@ pc = Controller(
     dlm_exec_par="/path/to/DLMONTE-PRL.X",
     nw=16,
     nodes=1,
+    sched="archer2",
 )
 
 # Run full TMMC pipeline at 300K (requires CONTROL, CONFIG, FIELD in working directory)
 pc.master_surf_tmmc(temp=300)
 
 # Or submit jobs for multiple temperatures to HPC
-pc.tmmc_looper(temps=[300, 350, 400], mode="archer2", timec=24)
+pc.tmmc_looper(temps=[300, 350, 400], timec=24)
 ```
