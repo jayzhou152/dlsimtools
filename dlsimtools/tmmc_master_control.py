@@ -274,16 +274,17 @@ class Controller():
         folder = os.path.abspath(folder)
         sims = natsort.natsorted([
             d for d in os.listdir(folder)
-            if os.path.isdir(os.path.join(folder, d))
+            if "mc_tmmc" in d
+            and os.path.isdir(os.path.join(folder, d))
             and "CONTROL" in os.listdir(os.path.join(folder, d))
         ])
 
         if not sims:
             raise ValueError(
-                "No simulation directories (containing CONTROL) found in '{}'.".format(folder)
+                "No mc_tmmc simulation directories (containing CONTROL) found in '{}'.".format(folder)
             )
 
-        print("Found {} simulation(s) in '{}': {}".format(len(sims), folder, sims))
+        print("Found {} mc_tmmc simulation(s) in '{}': {}".format(len(sims), folder, sims))
 
         cwdir = os.getcwd()
         os.chdir(folder)
