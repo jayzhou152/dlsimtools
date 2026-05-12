@@ -18,7 +18,7 @@ import subprocess
 
 class Controller():
     
-    def __init__(self, dlm_exec="default" , dlm_exec_par ="default" , rs_steps = 20000000, tmmc_steps = 2000000000, psteps = 2000000000, rlims = [-4e7,4e7], lsmc_mpi = False, use_sb= "se", rel_steps = 100000, cont_fac = [0.5,2], bin_fac = 1, added_sb = 0, rmode = "normal", nodes=1, nw=16, gradco = [5.089E-5,0.6136], prodmode = "ee", gcexclude = True, slab_molname = "XYZ", thickness_mode="edge", check_m = False, check_fe=True, tol=0.1, get_max_disp = True, upper_softedge = True, lower_softedge = False, rigid = False, volrel = "no_rel", volrel_param = [0,0,0,0,0,0], pull_cont_dis=1, nmol_strict= False,setup_cp = 1E100, setup_steps=10000000, new_control = False, sched="default"):
+    def __init__(self, dlm_exec="default" , dlm_exec_par ="default" , rs_steps = 20000000, tmmc_steps = 2000000000, psteps = 2000000000, rlims = [-4e7,4e7], lsmc_mpi = False, use_sb= "se", rel_steps = 100000, cont_fac = [0.5,2], bin_fac = 1, added_sb = 0, rmode = "normal", nodes=1, nw=16, gradco = [5.089E-5,0.6136], prodmode = "ee", gcexclude = True, slab_molname = "XYZ", thickness_mode="edge", tol=0.1, get_max_disp = True, upper_softedge = True, lower_softedge = False, rigid = False, volrel = "no_rel", volrel_param = [0,0,0,0,0,0], pull_cont_dis=1, nmol_strict= False,setup_cp = 1E100, setup_steps=10000000, new_control = False, sched="default"):
         """_summary_
 
         Args:
@@ -40,8 +40,6 @@ class Controller():
             gcexclude (bool, optional): _description_. Defaults to True.
             slab_molname (str, optional): _description_. Defaults to "XYZ".
             thickness_mode (str, optional): _description_. Defaults to "edge".
-            check_m (bool, optional): _description_. Defaults to False.
-            check_fe (bool, optional): _description_. Defaults to True.
             tol (float, optional): _description_. Defaults to 0.1.
             get_max_disp (bool, optional): _description_. Defaults to True.
             upper_softedge (bool, optional): _description_. Defaults to True.
@@ -74,8 +72,7 @@ class Controller():
         self.gcexclude = gcexclude
         self.slab_molname = slab_molname
         self.thickness_mode = thickness_mode
-        self.check_m = check_m
-        self.check_fe = check_fe
+        self.check_fe = True
         self.tol = tol
         self.get_max_disp = get_max_disp
         self.upper_softedge = upper_softedge
@@ -100,8 +97,6 @@ class Controller():
             else:
                 self.mc = MonteCore(dlm_com = dlm_exec, dlm_com_par = dlm_exec_par)
         
-        if self.check_m and self.check_fe:
-            raise ValueError("check_m and check_fe are mutually exclusive runtime checkers, please only enable one of them.")
 
     def master_surf_tmmc(self,temp):
 
@@ -189,7 +184,7 @@ class Controller():
         else:
             raise ValueError("sb mode must be 'zero', 'se' or 'optimised'.")
         tmruns = mc.tmmc (rone, rtwo, bins, self.nw, temp, 1, mode = "loose", cont = True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge, nwin_crit=self.nwin_crit)
-        mc.check_runs_terminate(tmruns, 60 , check_m = self.check_m,check_fe=self.check_fe,tol=self.tol)
+        mc.check_runs_terminate(tmruns, 60 , check_fe=self.check_fe,tol=self.tol)
         os.chdir("..")
 
     def tmmc(self,temp,oprange):
@@ -202,10 +197,10 @@ class Controller():
         oprange = [rone,rtwo]
         tmruns = mc.tmmc(oprange[0],oprange[1],0,self.nw,temp,1,cont=True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge, nwin_crit=self.nwin_crit)
         time.sleep(120)
-        mc.check_runs_terminate(tmruns,60,check_m=self.check_m,check_fe=self.check_fe)
+        mc.check_runs_terminate(tmruns,60,check_fe=self.check_fe)
         os.chdir("..")
     
-    def write_tmmc(self, temp, process = "bias", contdir = "lsmc",bubbleless= False):
+    def write_tmmc(self, temp, process = "bias", contdir = "lsmc", bubbleless= False, check_fe=True):
         
         with open("tmmc_master{}.py".format(temp),'w') as fw:
 
@@ -213,12 +208,13 @@ class Controller():
 
             f_str = "pc = Controller(dlm_exec = '{}', dlm_exec_par ='{}', rs_steps = {},tmmc_steps = {}," +\
                 "psteps = {}, rlims = [{},{}], lsmc_mpi = {}, use_sb ='{}', rel_steps = {}, cont_fac = [{},{}], bin_fac = {}, added_sb = {}, rmode = '{}', nodes = {}, nw = {}, gradco = {}," +\
-                "prodmode = '{}', gcexclude = {}, slab_molname = '{}', thickness_mode='{}', check_m = {}, check_fe = {}, tol = {}, get_max_disp = {}, upper_softedge = {}, lower_softedge = {}, rigid = {}, volrel = '{}', volrel_param=[{},{},{},{},{},{}], pull_cont_dis = {}, nmol_strict = {}, setup_cp = {}, setup_steps = {}, new_control = {}, sched = '{}')\n"
+                "prodmode = '{}', gcexclude = {}, slab_molname = '{}', thickness_mode='{}', tol = {}, get_max_disp = {}, upper_softedge = {}, lower_softedge = {}, rigid = {}, volrel = '{}', volrel_param=[{},{},{},{},{},{}], pull_cont_dis = {}, nmol_strict = {}, setup_cp = {}, setup_steps = {}, new_control = {}, sched = '{}')\n"
             f_str = f_str.format(self.dlm_exec, self.dlm_exec_par, self.rs_steps, self.tmmc_steps, self.psteps, self.rlims[0], self.rlims[1], self.lsmc_mpi, self.use_sb, self.rel_steps, self.cont_fac[0],
             self.cont_fac[1], self.bin_fac, self.added_sb, self.rmode, self.nodes, self.nw, self.gradco,
-            self.prodmode, self.gcexclude, self.slab_molname, self.thickness_mode, self.check_m, self.check_fe, self.tol, self.get_max_disp, self.upper_softedge, self.lower_softedge, self.rigid, self.volrel, self.volrel_param[0],self.volrel_param[1],self.volrel_param[2],self.volrel_param[3],self.volrel_param[4],self.volrel_param[5],self.pull_cont_dis,self.nmol_strict,self.setup_cp,self.setup_steps,self.new_control,self.sched)
+            self.prodmode, self.gcexclude, self.slab_molname, self.thickness_mode, self.tol, self.get_max_disp, self.upper_softedge, self.lower_softedge, self.rigid, self.volrel, self.volrel_param[0],self.volrel_param[1],self.volrel_param[2],self.volrel_param[3],self.volrel_param[4],self.volrel_param[5],self.pull_cont_dis,self.nmol_strict,self.setup_cp,self.setup_steps,self.new_control,self.sched)
 
-            fw.write (f_str)
+            fw.write(f_str)
+            fw.write("pc.check_fe = {}\n".format(check_fe))
 
             if "bias" in process:
                 fw.write("pc.master_surf_tmmc({})".format(temp))
@@ -251,7 +247,7 @@ class Controller():
                     tmmc_only, tmmc_cont, tmmc_pull, tmmc_pcont, tmmc_nmols.")
     
     def run_folder(self, folder, timec=24, nodes=1, mem=0, prt="standard", qos="standard",
-                   Qtype="premium", pcode=None, env=None):
+                   Qtype="premium", pcode=None, env=None, check_fe=True):
         """Submit a single HPC job that runs all DL_MONTE simulations in `folder` sequentially.
 
         Each immediate subdirectory of `folder` that contains a CONTROL file is treated as one
@@ -301,16 +297,24 @@ class Controller():
         runner_name = "folder_runner.py"
         with open(runner_name, "w") as fw:
             fw.write("import os\n")
+            fw.write("import subprocess\n")
             fw.write("from dlsimtools.MonteCore import MonteCore\n\n")
             fw.write("mc = MonteCore(dlm_com='{}', dlm_com_par='{}')\n".format(
                 self.mc.dlm_com, self.mc.dlm_com_par))
             fw.write("base = os.path.dirname(os.path.abspath(__file__))\n")
+            fw.write("check_fe = {}\n".format(check_fe))
             fw.write("sims = {}\n\n".format(repr(sims)))
+            fw.write("procs = []\n")
             fw.write("for sim in sims:\n")
-            fw.write("    print('Running: ' + sim, flush=True)\n")
+            fw.write("    print('Starting: ' + sim, flush=True)\n")
             fw.write("    os.chdir(os.path.join(base, sim))\n")
-            fw.write("    mc.run_dlm(mode='fg')\n")
-            fw.write("    print('Completed: ' + sim, flush=True)\n\n")
+            fw.write("    procs.append(subprocess.Popen([mc.dlm_com]))\n")
+            fw.write("os.chdir(base)\n\n")
+            fw.write("if check_fe:\n")
+            fw.write("    mc.check_runs_terminate(sims, 60, check_fe=True)\n")
+            fw.write("else:\n")
+            fw.write("    for proc in procs:\n")
+            fw.write("        proc.wait()\n\n")
             fw.write("print('All simulations complete.')\n")
 
         exe_name = "python" if self.sched == "archer2" else "python3"
@@ -337,7 +341,7 @@ class Controller():
         os.chdir(cwdir)
         return jobid
 
-    def tmmc_looper(self, temps, timec = 96, mem = 0, prt = "standard", qos ="standard", contdir = "mc_nmol", bubbleless=False, Qtype = "premium", pcode = None, process = "bias", bulk_image=False, env=None):
+    def tmmc_looper(self, temps, timec = 96, mem = 0, prt = "standard", qos ="standard", contdir = "mc_nmol", bubbleless=False, Qtype = "premium", pcode = None, process = "bias", bulk_image=False, env=None, check_fe=True):
 
         if env is None:
             env = "myenv" if self.sched == "isambard3" else "py_env"
@@ -357,7 +361,7 @@ class Controller():
             hpw = HPCWorker("slurm")
 
             for temp in temps:
-                self.write_tmmc(temp, process=process, contdir=contdir, bubbleless = bubbleless)
+                self.write_tmmc(temp, process=process, contdir=contdir, bubbleless=bubbleless, check_fe=check_fe)
                 time.sleep(1)
                 sname = hpw.write_jobscript("slurm", env="work", exe = "python3 tmmc_master{}.py".format(temp))
                 runcom = hpw.get_runcom(self.nodes, timec, sname, prt = prt, mem = mem, qos=qos, Qtype=Qtype)
@@ -387,7 +391,7 @@ class Controller():
                             shutil.copy("../CONTROL_new","mc_slab1/CONTROL_new")
                         os.chdir("mc_slab1")
                 
-                self.write_tmmc(temp, process=process, contdir=contdir, bubbleless = bubbleless)
+                self.write_tmmc(temp, process=process, contdir=contdir, bubbleless=bubbleless, check_fe=check_fe)
                 time.sleep(1)
                 sname = hpw.write_jobscript("archer2", env=env, exe = "python tmmc_master{}.py".format(temp))
                 runcom = hpw.get_runcom(self.nodes, timec, sname, prt = prt, mem = mem, qos=qos, Qtype=Qtype, premiumcode=pcode)
@@ -404,7 +408,7 @@ class Controller():
                         if self.new_control:
                             shutil.copy("../CONTROL_new","CONTROL_new")
 
-                    self.write_tmmc(temp, process=process, contdir=contdir, bubbleless = bubbleless)
+                    self.write_tmmc(temp, process=process, contdir=contdir, bubbleless=bubbleless, check_fe=check_fe)
                     time.sleep(1)
                     sname = hpw.write_jobscript("archer2", env=env, exe = "python tmmc_master{}.py".format(temp))
                     runcom = hpw.get_runcom(self.nodes, timec, sname, prt = prt, mem = mem, Qtype=Qtype, premiumcode=pcode)
@@ -522,7 +526,7 @@ class Controller():
                             shutil.copy("../CONTROL_new","mc_slab1/CONTROL_new")
                         os.chdir("mc_slab1")
 
-                self.write_tmmc(temp, process=process, contdir=contdir, bubbleless=bubbleless)
+                self.write_tmmc(temp, process=process, contdir=contdir, bubbleless=bubbleless, check_fe=check_fe)
                 time.sleep(1)
                 sname = hpw.write_jobscript("isambard3", env=env, exe="python tmmc_master{}.py".format(temp))
                 runcom = hpw.get_runcom(self.nodes, timec, sname, prt=prt, mem=mem, Qtype=Qtype, premiumcode=pcode)
@@ -539,7 +543,7 @@ class Controller():
                         if self.new_control:
                             shutil.copy("../CONTROL_new","CONTROL_new")
 
-                    self.write_tmmc(temp, process=process, contdir=contdir, bubbleless=bubbleless)
+                    self.write_tmmc(temp, process=process, contdir=contdir, bubbleless=bubbleless, check_fe=check_fe)
                     time.sleep(1)
                     sname = hpw.write_jobscript("isambard3", env=env, exe="python tmmc_master{}.py".format(temp))
                     runcom = hpw.get_runcom(self.nodes, timec, sname, prt=prt, mem=mem, Qtype=Qtype, premiumcode=pcode)
@@ -847,7 +851,7 @@ class Controller():
                     mc.run_dlm()
                 os.chdir("..")
         
-        mc.check_runs_terminate(tmruns, 60 ,threshold = 6000,check_fe = self.check_fe, check_m = self.check_m, tol = self.tol)
+        mc.check_runs_terminate(tmruns, 60 ,threshold = 6000,check_fe = self.check_fe, tol = self.tol)
         os.chdir("..")
 
     def tmmc_distance(self, temp):
@@ -911,7 +915,7 @@ class Controller():
             bin = int((bin/(self.nw + 1))) * (self.nw+1)
 
         runs = mc.tmmc(drangeone,drangetwo,bin,self.nw,temp,0,ls=False,nwin_crit=self.nwin_crit)
-        mc.check_runs_terminate(runs, 5, check_fe = False, check_m = False)
+        mc.check_runs_terminate(runs, 5)
 
         #mc.check_in_window(runs)
         #subprocess.run("pkill DLMONTE-SRL.X",shell=True)
@@ -995,10 +999,10 @@ class Controller():
                 #mc.run_dlm()
                 os.chdir("..")
 
-            mc.check_runs_terminate(runs, 5, check_fe = False, check_m = False)
+            mc.check_runs_terminate(runs, 5)
 
             #try:
-            #    mc.check_runs_terminate(runs, 5, check_fe = False, check_m = False)
+            #    mc.check_runs_terminate(runs, 5)
             #except KeyError:
             #    os.chdir("..")
             #    os.chdir(runs[0])
@@ -1525,5 +1529,5 @@ class Controller():
                 mc.edit_windowed_control(vals[0],vals[1],mode="wrange",softedge=True)
             mc.run_dlm()
             os.chdir("..")
-        mc.check_runs_terminate(dir_lists,120, check_m = self.check_m)
+        mc.check_runs_terminate(dir_lists,120)
     

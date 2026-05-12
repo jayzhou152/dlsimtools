@@ -524,38 +524,6 @@ class MonteCore():
         return run_folders
     
     
-    def check_m_equi(self, data, boundgap, datalim, slicen = 10, slice_equi = 2, threshold = 0.98):
-            
-        data_len = len(data)
-        start_p = int(data_len/100)
-        data = data[start_p:]
-
-        holder = []
-        for i in data:
-            if i <= datalim[1] or i >= datalim[0]:
-                holder.append(i)
-        data = np.array(holder)
-
-        incre = int(len(data)/slicen)
-        if incre < 1:
-            incre = 1
-        count = 0 
-        
-        for i in range(slicen):
-            start = i * incre
-            end = start + incre
-            test_data = data[start:end]
-            
-            if max(test_data) - min(test_data) > threshold * boundgap:
-                count +=1
-            else:
-                count = 0
-            
-        if count >= slice_equi:
-            return True
-        else:
-            return False
-
     def change_cellmat(self, mat, file = "CONFIG", mode = "normal"):
         
         mat = np.array(mat)
@@ -717,7 +685,7 @@ class MonteCore():
             return same_length_count , prev_length
 
 
-    def check_terminate(self, interval, threshold = 600, sleep = 5, check_m = False, check_fe = False, tol = .1):
+    def check_terminate(self, interval, threshold = 600, sleep = 5, check_fe = False, tol = .1):
         
         same_length_count = 1
         prev_length = 1
@@ -823,34 +791,6 @@ class MonteCore():
                     os.chdir(curdir)
 
 
-        elif check_m:
-            print("checking for order param scan completeness.")
-            count = 0 
-
-            while True:
-                time.sleep(interval)
-                count += 1
-                if count == 1200:
-                    c_dir = os.getcwd()
-                    os.chdir("..")
-                    self.tm_backup()
-                    count = 0
-                    os.chdir(c_dir)          
-                try:
-                    data_test = np.loadtxt("PSDATA.000")
-                except OSError:
-                    continue
-                if len(data_test) > 100:
-                    break
-
-            bandgap, datalim, windlim = self.get_bandgap()
-            data = np.loadtxt("PSDATA.000")
-            data = data[(int(len(data)/10)):,3]
-            if self.check_m_equi(data,bandgap,datalim):
-                print(data)
-                print(bandgap)
-                print(datalim)
-                return True
         else:
             print("checking for normal process behaviour")
             while True:
@@ -910,21 +850,17 @@ class MonteCore():
                     continue
 
  
-    def check_runs_terminate(self, runs, interval, threshold = 600, check_fe= False, check_m = False, tol = 0.1):
-        
+    def check_runs_terminate(self, runs, interval, threshold = 600, check_fe= False, tol = 0.1):
+
         #same_line_count = np.zeros(len(runs))
         #prev_line = ["" for i in range(len(runs))]
-        
-        if check_fe and check_m:
-            raise ValueError("check_fe and check_m are exclusive run-time checks, please only enable one of them each time.")
 
-            
         count = 0
-            
+
         for i in runs:
             os.chdir(i)
-            
-            if self.check_terminate(interval,threshold = threshold, check_fe= check_fe, check_m = check_m, tol = tol):
+
+            if self.check_terminate(interval,threshold = threshold, check_fe= check_fe, tol = tol):
                 count +=1
 
             os.chdir("..")
