@@ -268,12 +268,6 @@ class Controller():
         Returns:
             str: Submitted job ID.
         """
-        if self.sched not in ("balena", "archer2", "isambard3"):
-            raise ValueError(
-                "run_folder requires an HPC scheduler. "
-                "Set sched='archer2', 'isambard3', or 'balena' when creating Controller."
-            )
-
         if env is None:
             env = "myenv" if self.sched == "isambard3" else "py_env"
 
@@ -320,7 +314,11 @@ class Controller():
         exe_name = "python" if self.sched == "archer2" else "python3"
         exe = "{} {}".format(exe_name, runner_name)
 
-        if self.sched == "balena":
+        if self.sched == "default":
+            subprocess.run([exe_name, runner_name])
+            os.chdir(cwdir)
+            return None
+        elif self.sched == "balena":
             hpw = HPCWorker("slurm")
             sname = hpw.write_jobscript("slurm", env=env, exe=exe)
             runcom = hpw.get_runcom(nodes, timec, sname, prt=prt, mem=mem, qos=qos, Qtype=Qtype)
