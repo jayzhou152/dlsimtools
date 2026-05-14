@@ -10,7 +10,7 @@ from .GeneralOptimizer import GeneralOptimizer
 from .GeneralUtil import GeneralUtil
 from .HPCworker import HPCWorker
 from .MonteData import MonteData
-from math import sqrt
+from math import sqrt, ceil
 from .MonteCon import MonteCon
 import natsort
 import subprocess
@@ -86,7 +86,6 @@ class Controller():
         self.setup_steps = setup_steps
         self.new_control = new_control
         self.sched = sched
-        self.nwin_crit = 143 if sched == "isambard3" else 127
         if dlm_exec == "default" and dlm_exec_par == "default":
             self.mc = MonteCore()
         else:
@@ -183,7 +182,7 @@ class Controller():
             SwitchBias.bias_change(0)
         else:
             raise ValueError("sb mode must be 'zero', 'se' or 'optimised'.")
-        tmruns = mc.tmmc (rone, rtwo, bins, self.nw, temp, 1, mode = "loose", cont = True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge, nwin_crit=self.nwin_crit)
+        tmruns = mc.tmmc (rone, rtwo, bins, self.nw, temp, 1, mode = "loose", cont = True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge, use_srun=(self.sched == "archer2"))
         mc.check_runs_terminate(tmruns, 60 , check_fe=self.check_fe,tol=self.tol)
         os.chdir("..")
 
@@ -195,7 +194,7 @@ class Controller():
                 rone = float(fh.readline())
                 rtwo = float(fh.readline())
         oprange = [rone,rtwo]
-        tmruns = mc.tmmc(oprange[0],oprange[1],0,self.nw,temp,1,cont=True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge, nwin_crit=self.nwin_crit)
+        tmruns = mc.tmmc(oprange[0],oprange[1],0,self.nw,temp,1,cont=True, upper_softedge=self.upper_softedge, lower_softedge=self.lower_softedge, use_srun=(self.sched == "archer2"))
         time.sleep(120)
         mc.check_runs_terminate(tmruns,60,check_fe=self.check_fe)
         os.chdir("..")
@@ -300,22 +299,16 @@ class Controller():
             fw.write("check_fe = {}\n".format(check_fe))
             fw.write("sims = {}\n\n".format(repr(sims)))
             if self.sched == "archer2":
-                fw.write("nwin_crit = {}\n".format(self.nwin_crit))
-                fw.write("if len(sims) >= nwin_crit:\n")
-                fw.write("    print('Invoking cross node functionality.')\n")
-                fw.write("    proc_str = subprocess.check_output(['scontrol','show','hostnames'],universal_newlines=True)\n")
-                fw.write("    nodelist = proc_str.split()\n")
-                fw.write("else:\n")
-                fw.write("    nodelist = None\n\n")
+                fw.write("import math\n")
+                fw.write("proc_str = subprocess.check_output(['scontrol','show','hostnames'],universal_newlines=True)\n")
+                fw.write("nodelist = proc_str.split()\n")
+                fw.write("nwin_per_node = math.ceil(len(sims) / len(nodelist))\n")
                 fw.write("procs = []\n")
                 fw.write("for sim_n, sim in enumerate(sims):\n")
                 fw.write("    print('Starting: ' + sim, flush=True)\n")
                 fw.write("    os.chdir(os.path.join(base, sim))\n")
-                fw.write("    if nodelist is not None:\n")
-                fw.write("        node_name = nodelist[int(sim_n / nwin_crit)]\n")
-                fw.write("        procs.append(subprocess.Popen(['srun','--nodelist={}'.format(node_name),'--nodes=1','--ntasks=1','--tasks-per-node=1','--exact','--mem=1500M',mc.dlm_com]))\n")
-                fw.write("    else:\n")
-                fw.write("        procs.append(subprocess.Popen([mc.dlm_com]))\n")
+                fw.write("    node_name = nodelist[min(int(sim_n / nwin_per_node), len(nodelist)-1)]\n")
+                fw.write("    procs.append(subprocess.Popen(['srun','--nodelist={}'.format(node_name),'--nodes=1','--ntasks=1','--tasks-per-node=1','--exact','--mem=1500M',mc.dlm_com]))\n")
             else:
                 fw.write("procs = []\n")
                 fw.write("for sim in sims:\n")
@@ -805,10 +798,11 @@ class Controller():
             except FileNotFoundError:
                 raise FileNotFoundError ("CONTROL_new must exist in the parent directory when new_control is turned on.")
 
-        if self.nw >= 127:
+        if self.sched == "archer2":
             print("Invoking cross node functionality.")
             proc_str = subprocess.check_output(['scontrol','show','hostnames'],universal_newlines=True)
             nodelist = proc_str.split()
+            nwin_per_node = ceil(self.nw / len(nodelist))
             with open('nodes_list.txt','w') as fw:
                 for i in nodelist:
                     fw.write(i+'\n')
@@ -858,16 +852,14 @@ class Controller():
                     if "TMATRX.000" in os.listdir():
                         os.remove("TMATRX.000")
                         
-                if self.nw >= 127:
-                    node_name = nodelist[int(sim_n/127)]
-                    print(['srun','--nodelist={}'.format(node_name),'--nodes=1','--ntasks=1','--tasks-per-node=1',\
-                        '--exact', '--mem=1500M', mc.dlm_com, '&'])
+                if self.sched == "archer2":
+                    node_name = nodelist[min(int(sim_n/nwin_per_node), len(nodelist)-1)]
                     subprocess.Popen(['srun','--nodelist={}'.format(node_name),'--nodes=1','--ntasks=1','--tasks-per-node=1',\
-                        '--exact', '--mem=1500M', mc.dlm_com, '&'])
+                        '--exact', '--mem=1500M', mc.dlm_com])
                 else:
                     mc.run_dlm()
                 os.chdir("..")
-        
+
         mc.check_runs_terminate(tmruns, 60 ,threshold = 6000,check_fe = self.check_fe, tol = self.tol)
         os.chdir("..")
 
@@ -931,7 +923,7 @@ class Controller():
         else:
             bin = int((bin/(self.nw + 1))) * (self.nw+1)
 
-        runs = mc.tmmc(drangeone,drangetwo,bin,self.nw,temp,0,ls=False,nwin_crit=self.nwin_crit)
+        runs = mc.tmmc(drangeone,drangetwo,bin,self.nw,temp,0,ls=False,use_srun=(self.sched == "archer2"))
         mc.check_runs_terminate(runs, 5)
 
         #mc.check_in_window(runs)
@@ -963,10 +955,11 @@ class Controller():
 
             os.chdir("..")
 
-        if self.nw >= 127:
+        if self.sched == "archer2":
             print("Invoking cross node functionality.")
             proc_str = subprocess.check_output(['scontrol','show','hostnames'],universal_newlines=True)
             nodelist = proc_str.split()
+            nwin_per_node = ceil(self.nw / len(nodelist))
             with open('nodes_list.txt','w') as fw:
                 for i in nodelist:
                     fw.write(i+'\n')
@@ -1004,12 +997,10 @@ class Controller():
                 sim_n = int(i.split("tmmc")[1]) - 1
                 gu.edit_anything("steps",1000000000,"CONTROL")
 
-                if self.nw >= 127:
-                    node_name = nodelist[int(sim_n/127)]
-                    print(['srun','--nodelist={}'.format(node_name),'--nodes=1','--ntasks=1','--tasks-per-node=1',\
-                        '--exact', '--mem=1500M', mc.dlm_com, '&'])
+                if self.sched == "archer2":
+                    node_name = nodelist[min(int(sim_n/nwin_per_node), len(nodelist)-1)]
                     subprocess.Popen(['srun','--nodelist={}'.format(node_name),'--nodes=1','--ntasks=1','--tasks-per-node=1',\
-                        '--exact', '--mem=1500M', mc.dlm_com, '&'])
+                        '--exact', '--mem=1500M', mc.dlm_com])
                 else:
                     mc.run_dlm()
 
@@ -1028,7 +1019,7 @@ class Controller():
             #        raise ValueError("Molecule filling sims failed without reaching target number of molecules.")
             #    os.chdir("..")
             
-            if self.nw >= 127:
+            if self.sched == "archer2":
                 jobid = os.environ['SLURM_JOB_ID']
                 subprocess.Popen(['scancel','--signal=TERM',jobid])
             else:
@@ -1419,7 +1410,7 @@ class Controller():
             drangetwo = bg[0] + bin
             mc.edit_windowed_control(drangeone,drangetwo,mode="allrange")
 
-        runs = mc.tmmc(drangeone,drangetwo,bin,self.nw,temp,1,mode="gcmc",ls=False,bubbleless=bubbleless,nwin_crit=self.nwin_crit)
+        runs = mc.tmmc(drangeone,drangetwo,bin,self.nw,temp,1,mode="gcmc",ls=False,bubbleless=bubbleless,use_srun=(self.sched == "archer2"))
         if not mc.check_in_window(runs):
             print ("Window set up sim failed, terminating run loop...")
             return False
@@ -1435,7 +1426,7 @@ class Controller():
         #for i in nodelist:
         #    subprocess.Popen(['srun','--nodelist={}'.format('nid'+i),'--nodes=1','--ntasks=1','--tasks-per-node=1',\
         #            '--exact', '--mem=1500M', 'python', 'kill.py', '&'])
-        if self.nw >= 127:
+        if self.sched == "archer2":
             jobid = os.environ['SLURM_JOB_ID']
             subprocess.Popen(['scancel','--signal=TERM',jobid])
         else:

@@ -12,6 +12,7 @@ import sys
 import time
 import json
 import csv
+import math
 
 from .InputConverter import InputConverter
 from .GeneralUtil import GeneralUtil
@@ -398,7 +399,7 @@ class MonteCore():
             print("Control file does not exist.")
 
     
-    def tmmc (self, mmin, mmax, nbin, nwin, temp, pressure, mode = "loose", ls=True, cont = True, upper_softedge = False, lower_softedge = False, bubbleless = False, nwin_crit=127):
+    def tmmc (self, mmin, mmax, nbin, nwin, temp, pressure, mode = "loose", ls=True, cont = True, upper_softedge = False, lower_softedge = False, bubbleless = False, use_srun=False):
         """
         
 
@@ -459,10 +460,11 @@ class MonteCore():
 #                raise ValueError("gcmc checks requires Nmin-Nmax to equal to Nbin")
 #                return 0
 
-        if nwin >= nwin_crit:
+        if use_srun:
             print("Invoking cross node functionality.")
             proc_str = subprocess.check_output(['scontrol','show','hostnames'],universal_newlines=True)
             nodelist = proc_str.split()
+            nwin_per_node = math.ceil(nwin / len(nodelist))
             with open('nodes_list.txt','w') as fw:
                 for i in nodelist:
                     fw.write(i+'\n')
@@ -510,12 +512,10 @@ class MonteCore():
             
             print(self.get_bandgap())
 
-            if nwin >= nwin_crit:
-                node_name = nodelist[int(i/nwin_crit)]
-                print(['srun','--nodelist={}'.format(node_name),'--nodes=1','--ntasks=1','--tasks-per-node=1',\
-                    '--exact', '--mem=1500M', self.dlm_com, '&'])
+            if use_srun:
+                node_name = nodelist[min(int(i/nwin_per_node), len(nodelist)-1)]
                 subprocess.Popen(['srun','--nodelist={}'.format(node_name),'--nodes=1','--ntasks=1','--tasks-per-node=1',\
-                    '--exact', '--mem=1500M', self.dlm_com, '&'])
+                    '--exact', '--mem=1500M', self.dlm_com])
             else:
                 self.run_dlm()
             print ("tmmc no.{} running..".format(i+1))
